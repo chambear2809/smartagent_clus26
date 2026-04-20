@@ -1,4 +1,47 @@
 .DS_Store
+
+# Python cache
 __pycache__/
 *.pyc
-smartagent-lab-credentials.env
+
+# Local secrets and overrides
+.env
+.env.*
+*.env
+*.local.env
+*.secret.env
+*.secrets.env
+*.credentials.env
+*.local.yaml
+*.local.yml
+*.private.yaml
+*.private.yml
+*.secret.yaml
+*.secret.yml
+*.credentials.yaml
+*.credentials.yml
+.envrc
+secrets/
+.secrets/
+smartagent-lab-credentials*.env
+
+# Private keys and credential bundles
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Keep intentional templates and examples tracked
+!.env.example
+!.env.sample
+!.env.template
+!*.example.env
+!*.sample.env
+!*.template.env
+!smartagent-lab-credentials.example.env
