@@ -1,0 +1,19 @@
+lab_name: "fixture-managed-ssh-args"
+region: "us-east-1"
+
+control_host: "control.example.internal"
+control_ssh_user: "ubuntu"
+control_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+control_bundle_dir: "/home/ubuntu/appdsm"
+
+managed_ssh_user: "ubuntu"
+managed_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+  - "-o"
+  - "ProxyCommand=ssh -W %h:%p jump.internal"
+
+managed_hosts:
+  - "10.0.0.10"

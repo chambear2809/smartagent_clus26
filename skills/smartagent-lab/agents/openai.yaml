@@ -1,0 +1,4 @@
+interface:
+  display_name: "SmartAgent Lab"
+  short_description: "Stage and validate Smart Agent labs"
+  default_prompt: "Use $smartagent-lab to stage a Smart Agent bundle safely and validate the lab through private VPC targets."

@@ -1,0 +1,32 @@
+lab_name: "fixture-lab"
+region: "us-east-1"
+
+control_host: "18.234.209.109"
+control_ssh_user: "ubuntu"
+control_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+control_bundle_dir: "/home/ubuntu/appdsm"
+
+managed_ssh_user: "ubuntu"
+managed_ssh_args:
+  - "-o"
+  - "BatchMode=yes"
+  - "-o"
+  - "StrictHostKeyChecking=no"
+
+managed_hosts:
+  - "172.31.1.48"
+  - "172.31.1.142"
+
+remote_targets:
+  - "172.31.1.48"
+  - "172.31.1.142"
+
+java_demo_host: "172.31.1.48"
+java_demo_dir: "/home/ubuntu/spring-petclinic"
+
+node_demo_host: "172.31.1.142"
+infra_host: "172.31.1.5"
+
+smartagent_bundle_filename: "appdsmartagent_64_linux_26.3.0.938.zip"

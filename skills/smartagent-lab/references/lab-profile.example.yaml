@@ -1,0 +1,48 @@
+# Copy this file and replace the placeholder values for your environment.
+# The control host is the only public or bastion-style entry point.
+# Managed hosts should use private VPC or on-prem IPs reachable from the control host.
+# Use a normal SSH login user here. The Smart Agent runtime user/group is defined in remote.yaml on the control host.
+# Keep SSH args as list items so complex enterprise options stay intact.
+# If needed, export SMARTAGENT_CONTROL_SSH_PASSWORD or SMARTAGENT_MANAGED_SSH_PASSWORD instead of storing secrets in this file.
+
+lab_name: "smartagent-demo"
+region: "<aws-region-or-site>"
+
+control_host: "<control-host-address>"
+control_ssh_user: "<control-host-ssh-user>"
+control_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+control_bundle_dir: "/home/<control-host-ssh-user>/appdsm"
+
+managed_ssh_user: "<managed-host-ssh-user>"
+managed_ssh_args:
+  - "-o"
+  - "BatchMode=yes"
+  - "-o"
+  - "StrictHostKeyChecking=no"
+
+expected_remote_auth_username: "<managed-host-ssh-user>"
+expected_remote_privileged: "true"
+expected_smartagent_user: "root"
+expected_smartagent_group: "root"
+
+managed_hosts:
+  - "<managed-host-private-ip-1>"
+  - "<managed-host-private-ip-2>"
+
+remote_targets:
+  - "<managed-host-private-ip-1>"
+  - "<managed-host-private-ip-2>"
+
+java_demo_host: "<java-demo-private-ip>"
+java_demo_dir: "/home/<managed-host-ssh-user>/spring-petclinic"
+
+node_demo_host: "<node-demo-private-ip>"
+infra_host: "<infra-private-ip>"
+
+controller_url: "<controller-url>"
+controller_account_name: "your-account-name"
+splunk_realm: "<splunk-realm>"
+
+smartagent_bundle_filename: "appdsmartagent_64_linux_<version>.zip"

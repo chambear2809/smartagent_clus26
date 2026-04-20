@@ -1,0 +1,24 @@
+lab_name: "fixture-lab"
+region: "us-east-1"
+
+control_host: "18.234.209.109"
+control_ssh_user: "ec2-user"
+control_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+control_bundle_dir: "/opt/appdynamics/appdsm"
+
+managed_ssh_user: "svc-smartagent"
+managed_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+
+expected_remote_auth_username: "svc-smartagent"
+expected_remote_privileged: "false"
+expected_smartagent_user: "svc-agent"
+expected_smartagent_group: "svc-observers"
+
+managed_hosts:
+  - "10.0.0.10"
+
+smartagent_bundle_filename: "appdsmartagent_64_linux_26.3.0.938.zip"
