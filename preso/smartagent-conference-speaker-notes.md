@@ -66,11 +66,16 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 
 ## Slide 11: Java, Node.js, and Infrastructure
 - Reinforce that Java is the critical proof point because the application already exists on the host.
-- The latest Java dual-mode guidance says that in most cases you should run an OpenTelemetry collector on the same system as the Java Agent, and once that collector is in place the minimal switch is AGENT_DEPLOYMENT_MODE=dual or -Dagent.deployment.mode=dual.
+- The latest Java dual-mode guidance says that in most cases you should run an OpenTelemetry collector on the same system as the Java Agent, and once that collector is in place the runtime JVM property is -Dagent.deployment.mode=dual.
+- In Agent Management, the java_system_properties field expects raw key=value entries without the -D prefix and without doubled outer quotes.
+- The UI can normalize the field and render one set of quotes after save. That is fine. The real mistake is doubled quotes from pasting quoted values into a field that already adds its own quoting.
+- A useful demo proof point is the host-side file /opt/appdynamics/appdsmartagent/profile/java/.manage/info.json. When that file shows java_system_properties as a clean key=value string, you know the Deployment Group has reached the host before you restart the JVM.
+- Trust info.json over the rendered field text. If auto-attach still looks off, the Smart Agent log shows the actual remote auto_attach payload the host received.
 - In the current lab, smartagent-1 already has a minimal same-host collector installed and healthy, so the honest live story is verify it or rerun the idempotent installer helper if you want to show the install motion.
 - The canonical operator path is the repo helper with --use-splunk-installer. Archive mode is only the restricted-egress contingency now.
 - That helper reuses an existing package, rewrites the host to a minimal collector config, and keeps the story focused on Java dual mode rather than extra distro defaults.
 - Also call out the operational caveat: the current docs say dynamic attachment is not supported when OpenTelemetry is enabled, so have the Deployment Group policy in place before the JVM starts or restart the JVM after the change.
+- If you are proving Smart Agent auto-attach, keep the application startup script plain. Hand-edited JAVA_TOOL_OPTIONS can make a bad Deployment Group look correct.
 - Be explicit that the local collector is a separate OpenTelemetry Collector process and not the Machine Agent, and that AppDynamics APM data still goes directly to the Controller.
 - In this lab, the Machine Agent remains appendix-only because the service is broken, while the local collector on smartagent-1 is already healthy on 13133, 4317, and 4318.
 - Node.js stays optional, but the operating model remains the same across runtimes.
@@ -84,11 +89,15 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 ## Slide 13: Configuration Model
 - This is the naming slide, and it matters because naming is what makes the demo portable between labs and environments.
 - SUPERVISOR_* covers Smart Agent and controller connectivity.
-- The latest dual-mode docs say that in most cases you should run a local collector on the same system, and once that collector is in place all you need for Dual Signal mode is AGENT_DEPLOYMENT_MODE=dual or -Dagent.deployment.mode=dual.
-- In Agent Management, the Java Agent custom configuration supports java_system_properties, so the concise Deployment Group example is install_agent_from: appd-portal, user: ubuntu, group: ubuntu, java_system_properties: "-Dagent.deployment.mode=dual".
+- The latest dual-mode docs say that in most cases you should run a local collector on the same system, and once that collector is in place the runtime JVM property is -Dagent.deployment.mode=dual.
+- In Agent Management, java_system_properties is not pasted as JVM flags. The field expects raw key=value entries, so the concise Deployment Group example is install_agent_from: appd-portal, user: ubuntu, group: ubuntu, java_system_properties: "agent.deployment.mode=dual" in YAML, or just agent.deployment.mode=dual in the UI field.
+- Call out the field-formatting gotcha explicitly: no leading -D in java_system_properties, no pasted quotes in the UI field, and no doubled outer quotes in the rendered result.
+- Also call out the host-side gate: check /opt/appdynamics/appdsmartagent/profile/java/.manage/info.json. In the demo, that file should show java_system_properties as a clean key=value string before you restart the JVM and inspect the live process.
+- If the UI preview and the host disagree, point to /opt/appdynamics/appdsmartagent/log.log and the Attempting to update remote config entry. That shows the actual auto_attach payload delivered to the host.
 - For this demo, AppDynamics APM still goes directly to the Controller. The collector path uses the Splunk realm and access token for O11y export, not a separate AppDynamics exporter.
 - For the demo, avoid implying a hot toggle on a live JVM. The docs say dynamic attachment is not supported when OpenTelemetry is enabled, so a restart after the Deployment Group change is the safe path.
 - If the collector is not on the default local listener, add explicit OTEL endpoint and protocol properties. In the current lab, the default listener is already healthy on 4317 and 4318.
+- Keep the app startup script plain during the demo. If you hand-edit run-app.sh or JAVA_TOOL_OPTIONS, you can accidentally hide a broken Deployment Group configuration.
 - The local collector is separate from the Machine Agent. In this lab, smartagent-1 already has a healthy local collector, so use that as the steady state and rerun the idempotent helper only if you want to show the install motion.
 - The message is that the file stays stable while the environment changes around it.
 

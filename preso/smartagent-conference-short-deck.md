@@ -93,7 +93,9 @@ Derived from `smartagent-architecture.md`, `smartagent-demo-script.md`, and `sma
 - SUPERVISOR_*
 - Smart Agent and controller settings
 - AGENT_DEPLOYMENT_MODE
-- Set dual, appdynamics, or otel mode
+- java_system_properties uses raw key=value
+- Paste raw values into the UI
+- Trust host proof over UI preview
 - SPLUNK_* and OTEL_*
 - Collector and direct-export settings
 

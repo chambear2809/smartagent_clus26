@@ -325,6 +325,11 @@ find . -maxdepth 2 \( -name pom.xml -o -name '*.jar' \)
 sed -n '1,20p' run-app.sh
 ```
 
+Current-lab reminder:
+
+- keep `run-app.sh` plain for the demo instead of injecting `JAVA_TOOL_OPTIONS` there
+- use the host's normal login-shell path when rehearsing, because this lab exports Smart Agent auto-attach through `/etc/profile.d/set-appdynamics-env.sh`
+
 Validated live startup path:
 
 ```bash
@@ -406,20 +411,71 @@ Once the collector is running locally, the minimal switch is:
 export AGENT_DEPLOYMENT_MODE=dual
 ```
 
+The runtime JVM property is:
+
+```text
+-Dagent.deployment.mode=dual
+```
+
+In Agent Management `java_system_properties`, enter the raw `key=value` form without the `-D` prefix:
+
+```text
+agent.deployment.mode=dual
+```
+
 Or in Deployment Group Java custom configuration:
 
 ```yaml
 install_agent_from: appd-portal
 user: ubuntu
 group: ubuntu
-java_system_properties: "-Dagent.deployment.mode=dual"
+java_system_properties: "agent.deployment.mode=dual"
 ```
+
+If you are editing only the UI field, paste `agent.deployment.mode=dual` without extra outer quotes in the field.
+
+UI behavior note:
+
+- enter raw values in the custom-configuration field and let the UI normalize the rendering
+- one layer of quotes in the rendered view is usually harmless
+- doubled quotes usually mean the value was pasted with quotes and then quoted again by the UI
+
+Host-side verification gate before the JVM restart:
+
+- check `/opt/appdynamics/appdsmartagent/profile/java/.manage/info.json`
+- in the current lab, a clean Deployment Group shows `java_system_properties:"agent.deployment.mode=dual ..."` there
+- trust `info.json` over the rendered UI text when you need to know what reached the host
+- use that check to prove the Deployment Group reached the host before you restart the brownfield JVM and inspect the live process
+
+If the Deployment Group UI and the host do not seem to agree:
+
+- inspect `/opt/appdynamics/appdsmartagent/log.log`
+- search for `Attempting to update remote config`
+- inspect the `auto_attach` payload the host actually received
+- in the current lab, that payload expresses Java auto-attach as `agentProperties.agent_dir="./profile/java"`
 
 Operational caveat:
 
 - the current docs say dynamic attachment is not supported when OpenTelemetry is enabled
 - apply the Deployment Group before the JVM starts, or restart the JVM after the change
 - AppDynamics APM data still goes straight to the Controller from the Combined Agent; the collector is only for the O11y side
+- in the current lab, auto-attach is surfaced through `/etc/profile.d/set-appdynamics-env.sh`, so use a normal login-shell start path when you rehearse the brownfield app
+- keep `run-app.sh` plain in the demo; hand-editing `JAVA_TOOL_OPTIONS` there can hide a broken Deployment Group config
+
+If the collector endpoint is not the default local listener, make it explicit:
+
+```yaml
+install_agent_from: appd-portal
+user: ubuntu
+group: ubuntu
+java_system_properties: "agent.deployment.mode=dual otel.exporter.otlp.endpoint=http://127.0.0.1:4318 otel.exporter.otlp.protocol=http/protobuf otel.service.name=petclinic otel.resource.attributes=service.namespace=smartagent-demo,deployment.environment.name=fso-tme,host.name=smartagent-1 otel.metrics.exporter=none otel.logs.exporter=none"
+```
+
+Formatting reminder:
+
+- do not include leading `-D` in `java_system_properties`
+- do not wrap the whole UI field in doubled outer quotes
+- type raw values in the UI and let the renderer add a single quote layer if it wants to
 
 Rehearsal gate:
 

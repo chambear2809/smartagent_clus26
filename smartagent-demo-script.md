@@ -313,10 +313,18 @@ For Java auto-attach through a Deployment Group, the minimal Java system propert
 
 For a same-host local collector on default settings, that is the minimal dual-mode switch. The latest Splunk AppDynamics Java OTel guidance says that in most cases you should run an OpenTelemetry collector on the same system as the Java Agent, and once that local collector is in place, `AGENT_DEPLOYMENT_MODE=dual` is enough. For Java Agent 25.10 or later, the Combined Agent can auto-populate the required resource attributes from the AppDynamics configuration.
 
+For Agent Management `java_system_properties`, enter the raw `key=value` form without the `-D` prefix:
+
+```text
+agent.deployment.mode=dual
+```
+
 Operational caveat:
 
 - Apply the Deployment Group before the JVM starts, or restart the JVM after the policy change.
 - The latest docs say dynamic attachment is not supported when OpenTelemetry is enabled, so do not promise a no-restart toggle into dual mode for an already-running Java process.
+- In the current lab, Smart Agent auto-attach is surfaced through `/etc/profile.d/set-appdynamics-env.sh`, so rehearse the demo from a normal login-shell path.
+- Keep `~/spring-petclinic/run-app.sh` plain for the brownfield story. Hand-editing `JAVA_TOOL_OPTIONS` in the app start script can mask a broken Deployment Group configuration.
 
 Deployment Group custom-configuration example for the Java Agent:
 
@@ -324,8 +332,30 @@ Deployment Group custom-configuration example for the Java Agent:
 install_agent_from: appd-portal
 user: ubuntu
 group: ubuntu
-java_system_properties: "-Dagent.deployment.mode=dual"
+java_system_properties: "agent.deployment.mode=dual"
 ```
+
+If you are editing only the Agent Management UI field, paste `agent.deployment.mode=dual` without extra outer quotes in the field.
+
+UI behavior note:
+
+- enter raw values in the custom-configuration field and let the UI normalize the rendering
+- one layer of quotes in the rendered view is usually harmless
+- doubled quotes usually mean the value was pasted with quotes and then quoted again by the UI
+
+Host-side verification gate before the JVM restart:
+
+- check `/opt/appdynamics/appdsmartagent/profile/java/.manage/info.json`
+- in the current lab, a clean Deployment Group shows `java_system_properties:"agent.deployment.mode=dual ..."` there
+- trust `info.json` over the rendered UI text when you need to know what reached the host
+- use that check to prove the Deployment Group reached the host before you restart the brownfield JVM and inspect the live process
+
+If the Deployment Group UI and the host do not seem to agree:
+
+- inspect `/opt/appdynamics/appdsmartagent/log.log`
+- search for `Attempting to update remote config`
+- inspect the `auto_attach` payload the host actually received
+- in the current lab, that payload expresses Java auto-attach as `agentProperties.agent_dir="./profile/java"`
 
 If the collector endpoint is not the default local listener, make it explicit:
 
@@ -333,8 +363,14 @@ If the collector endpoint is not the default local listener, make it explicit:
 install_agent_from: appd-portal
 user: ubuntu
 group: ubuntu
-java_system_properties: "-Dagent.deployment.mode=dual -Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 -Dotel.exporter.otlp.protocol=http/protobuf"
+java_system_properties: "agent.deployment.mode=dual otel.exporter.otlp.endpoint=http://127.0.0.1:4318 otel.exporter.otlp.protocol=http/protobuf otel.service.name=petclinic otel.resource.attributes=service.namespace=smartagent-demo,deployment.environment.name=fso-tme,host.name=smartagent-1 otel.metrics.exporter=none otel.logs.exporter=none"
 ```
+
+Important field-formatting note:
+
+- Do not include leading `-D` in `java_system_properties`; Smart Agent prepends that when it assembles the JVM args.
+- Do not wrap the whole UI field in doubled outer quotes.
+- In the UI, type raw values without quotes and let the renderer add a single quote layer if it wants to.
 
 Important distinction:
 
