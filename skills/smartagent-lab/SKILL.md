@@ -1,6 +1,6 @@
 ---
 name: smartagent-lab
-description: Use when preparing, staging, validating, or documenting a repeatable Splunk AppDynamics Smart Agent lab, especially when a public control host manages private-VPC targets and brownfield Java demo apps.
+description: Use when preparing, staging, validating, or documenting a repeatable Splunk AppDynamics Smart Agent lab, especially when a public control host manages private-VPC targets, brownfield Java demo apps, a Windows-first UI upgrade path, and a repaired infrastructure host.
 ---
 
 # SmartAgent Lab
@@ -29,13 +29,13 @@ Use this skill for repeatable Smart Agent lab work in this repo and similar envi
 - Do not cut over the active control-host bundle unless the user explicitly asks.
 - Do not treat `smartagentctl status --remote` as harmless on the current lab.
 - Validate the remote SSH user and Smart Agent `user` / `group` model before rehearsing.
-- Treat `scripts/validate_lab.sh` as a real gate: it exits non-zero on critical drift and only leaves appendix checks as warnings.
+- Treat `scripts/validate_lab.sh` as a real gate: use `--require-windows-demo` for the opening Windows UI upgrade, `--require-machine-agent` whenever the infra host is part of the live flow, and `--require-java-collector` when the Java dual-signal path is on stage.
 
 ## Scripts
 
 - `scripts/stage_bundle.sh`: stage a new Smart Agent bundle on the control host. Dry-run by default.
 - `scripts/prepare_remote_push.sh`: make managed-host install directories writable by the remote SSH user before or after a latest-bundle remote rollout. Dry-run by default.
-- `scripts/validate_lab.sh`: run read-only validation through the control host against private-IP targets.
+- `scripts/validate_lab.sh`: run read-only validation through the control host against private-IP targets. Use `--require-windows-demo`, `--require-java-collector`, and `--require-machine-agent` when those paths are part of the demo.
 - `scripts/start_java_demo.sh`: print the Java brownfield startup flow by default, execute only with `--execute`.
 - `scripts/install_local_collector.sh`: stage and start a local collector on the Java demo host. Dry-run by default.
 
@@ -50,10 +50,13 @@ Use this skill for repeatable Smart Agent lab work in this repo and similar envi
 
 - The durable control-host `LD_PRELOAD` fix is already applied in the current lab. If a reused shell still carries it, reconnect or `unset LD_PRELOAD`.
 - The current lab uses `~/appdsm` on the control host and `/opt/appdynamics/appdsmartagent` on managed Linux hosts.
+- The Windows host is intentionally kept one Smart Agent release behind the managed Linux hosts so the live opening move can be a UI upgrade from `26.2.0-779` to `26.3.0-938`.
 - The Java brownfield app is `~/spring-petclinic`.
 - If the lab needs a local collector for Java dual mode, prefer `scripts/install_local_collector.sh --use-splunk-installer` with the Splunk realm and access token. Keep the Linux AMD64 archive only as a restricted-egress fallback.
+- Windows and Linux Smart Agent packages are different. Use the Windows ZIP plus `smartagentctl.exe` on Windows, and do not point the Linux remote-rollout bundle at the Windows host.
+- Rehearse the Windows host upgrade story from `Agent Management > Smart Agents` before putting it on stage. The point is UI-driven lifecycle control, not a live RDP sequence.
 - Keep Node.js optional unless the app is already staged.
-- Keep Machine Agent in appendix until the missing binary path is repaired.
+- Treat Machine Agent as a rehearsal gate instead of hand-wavy appendix material once `smartagent-3` is repaired. Use `scripts/validate_lab.sh --require-machine-agent` before demo day.
 
 ## Docs
 

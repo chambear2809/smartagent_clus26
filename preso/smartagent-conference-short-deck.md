@@ -38,13 +38,14 @@ Derived from `smartagent-architecture.md`, `smartagent-demo-script.md`, and `sma
 - Keep AppDynamics BTs and Controller workflows.
 - Send OTLP traces and infra signals to Splunk O11y.
 
-## Slide 6: Five Hosts, One Story
+## Slide 6: Six Hosts, One Story
 - Lab topology
-- Five Hosts, One Operating Model
+- Six Hosts, One Operating Model
 - One control node runs Smart Agent and smartagentctl.
 - One Java host proves brownfield attach with Petclinic.
-- One optional Node.js host extends the same lifecycle pattern.
-- Two more hosts cover infra visibility and controlled re-enrollment.
+- One Windows host is kept one version back for a live UI upgrade.
+- One repaired infra host brings Machine Agent visibility back into the story.
+- One reset target remains available for controlled re-enrollment.
 
 ## Slide 7: Who Wins
 - Audience
@@ -57,15 +58,15 @@ Derived from `smartagent-architecture.md`, `smartagent-demo-script.md`, and `sma
 - Demo flow
 - From the control host to managed proof
 
-## Slide 9: Remote Deployment Is The Wow Moment
-- Start on the control host.
-- Show env-driven Smart Agent config.
-- Run remote start on smartagent-4.
-- Confirm registration in Agent Management.
+## Slide 9: Agent Management Upgrade Is The Wow Moment
+- Start in `Agent Management > Smart Agents`.
+- Show `Smartagent-windows-1` on `26.2.0-779`.
+- Upgrade it to `26.3.0-938`.
+- Then pivot to the control host.
 
 ## Slide 10: Agent Management Validation
 - Managed inventory appears in the UI.
-- Deployment Group policy turns on auto-attach.
+- `Smartagent-windows-1` visibly moves from `26.2.0-779` toward `26.3.0-938`.
 - Versioning and rollout posture become visible.
 
 ## Slide 11: Java, Node.js, and Infrastructure
@@ -73,11 +74,12 @@ Derived from `smartagent-architecture.md`, `smartagent-demo-script.md`, and `sma
 - Java Petclinic is the brownfield proof.
 - smartagent-1 now has a minimal local collector ready.
 - Rerun the idempotent helper if you want to show install motion.
+- Windows lifecycle is shown from Agent Management, not from RDP.
 - Infrastructure
 - The collector is separate from the Machine Agent.
 - AppD still goes directly to the Controller.
 - Collector health is live on 13133, 4317, and 4318.
-- Machine Agent stays appendix-only in this lab.
+- `smartagent-3` should only be shown after Machine Agent repair is validated.
 
 ## Slide 12: The Operating Model
 - Two teams, one workflow
@@ -122,7 +124,7 @@ Derived from `smartagent-architecture.md`, `smartagent-demo-script.md`, and `sma
 - Migrate
 - Dual-signal mode creates a low-risk OTel path
 - Broaden
-- The story extends to Node.js and infrastructure
+- The story extends to Windows, Node.js, and infrastructure
 
 ## Slide 16: Questions and Discussion
 - Questions and discussion

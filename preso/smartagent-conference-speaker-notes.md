@@ -33,10 +33,10 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 - On the telemetry side, AppDynamics SaaS and Splunk Observability Cloud remain the destinations for the signals.
 - This is the key migration point: teams can modernize the data plane without disrupting the lifecycle plane.
 
-## Slide 6: Five Hosts, One Story
+## Slide 6: Six Hosts, One Story
 - Walk the room through the lab quickly and keep the emphasis on roles rather than IP addresses.
 - The presenter only needs to operate directly from the control node, which is what makes the rollout story credible.
-- smartagent-1 is the brownfield Java proof point, smartagent-2 provides optional Node.js breadth, smartagent-3 covers infrastructure, and smartagent-4 is the fresh install target.
+- smartagent-1 is the brownfield Java proof point, `Smartagent-windows-1` is the UI-driven Windows update proof point, smartagent-3 covers repaired infrastructure, smartagent-2 stays optional Node.js breadth, and smartagent-4 is the fresh install target.
 - The specific EC2 lab is incidental. The pattern is what should generalize to a real estate.
 
 ## Slide 7: Who Wins
@@ -47,19 +47,20 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 
 ## Slide 8: Demo Flow
 - Preview the run of show so the audience understands the logic of the demo before commands start flying.
-- Start with architecture, move into configuration, then show remote deployment and UI validation.
-- After that, pivot into brownfield Java, optional Node.js breadth, and infrastructure coverage.
-- If time gets compressed, say explicitly that Java plus infrastructure is still enough to prove the operating model.
+- Start with architecture, then open with the Windows Smart Agent upgrade in the UI.
+- While that rollout runs, pivot into control-host configuration, then brownfield Java, and close the loop with repaired infrastructure coverage.
+- If time gets compressed, say explicitly that Windows plus Java still proves the control-plane story, and repaired infrastructure is the extension.
 
-## Slide 9: Remote Deployment Is The Wow Moment
+## Slide 9: Agent Management Upgrade Is The Wow Moment
 - Slow down on this slide because this is the clearest live proof of central lifecycle control.
-- Show the control host configuration first so the audience sees that the setup is env-driven rather than hand-edited for one machine.
-- Then run remote start against smartagent-4 and narrate that a fresh host is becoming managed without a bespoke install session.
-- The command itself matters less than the operational pattern it demonstrates.
+- Start in `Agent Management > Smart Agents`, show `Smartagent-windows-1` on `26.2.0-779`, and then start the upgrade to `26.3.0-938`.
+- Call out that the host was intentionally kept one version back so the first demo move is a visible upgrade rather than a static inventory view.
+- The click path matters less than the operational pattern it demonstrates.
 
 ## Slide 10: Agent Management Validation
 - Move from terminal proof to UI proof. That shift is important for credibility with operations leaders.
 - Show that the newly managed host appears with recognizable metadata and state in Agent Management.
+- Show that `Smartagent-windows-1` visibly moves from `26.2.0-779` toward `26.3.0-938`.
 - Call out that the Java process still starts normally and that the Deployment Group controls auto-attach rather than a hand-edited -javaagent startup line.
 - Use this moment to connect the live demo to governance concerns like inventory, upgrade groups, and rollback posture.
 - This is where the story becomes operational rather than purely technical.
@@ -77,7 +78,7 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 - Also call out the operational caveat: the current docs say dynamic attachment is not supported when OpenTelemetry is enabled, so have the Deployment Group policy in place before the JVM starts or restart the JVM after the change.
 - If you are proving Smart Agent auto-attach, keep the application startup script plain. Hand-edited JAVA_TOOL_OPTIONS can make a bad Deployment Group look correct.
 - Be explicit that the local collector is a separate OpenTelemetry Collector process and not the Machine Agent, and that AppDynamics APM data still goes directly to the Controller.
-- In this lab, the Machine Agent remains appendix-only because the service is broken, while the local collector on smartagent-1 is already healthy on 13133, 4317, and 4318.
+- In the current lab, the local collector on smartagent-1 is already healthy on 13133, 4317, and 4318. Only put `smartagent-3` on stage once the Machine Agent repair is validated.
 - Node.js stays optional, but the operating model remains the same across runtimes.
 
 ## Slide 12: The Operating Model
@@ -113,11 +114,12 @@ Speaker notes embedded in `smartagent-conference-short-deck.pptx`.
 - Close with four verbs because they are easy to remember under time pressure.
 - Centralize lifecycle, attach to brownfield applications, migrate at a controlled pace, and broaden beyond Java alone.
 - If the audience remembers only one thing, it should be that Smart Agent reduces the cost of change.
+- The broaden point now includes Windows lifecycle changes through Agent Management, not just optional runtime coverage.
 - That is what makes the OpenTelemetry path practical instead of theoretical.
 
 ## Slide 16: Questions and Discussion
 - Open for Q and A with a few backup prompts ready in case the room is quiet.
-- Be prepared to talk about remote SSH auth, rollout safety, brownfield Java attach, and dual-signal mode.
+- Be prepared to talk about remote SSH auth, rollout safety, the Windows Smart Agent upgrade flow, brownfield Java attach, and dual-signal mode.
 - If someone asks about runtimes not shown live, mention Node.js coverage and the broader combined-agent roadmap at the operating-model level.
 
 ## Slide 17: Continue the Discussion in Webex

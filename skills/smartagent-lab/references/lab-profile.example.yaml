@@ -41,8 +41,22 @@ java_demo_dir: "/home/<managed-host-ssh-user>/spring-petclinic"
 node_demo_host: "<node-demo-private-ip>"
 infra_host: "<infra-private-ip>"
 
+# Optional operator notes for the Windows-first UI upgrade path. `validate_lab.sh
+# --require-windows-demo` consumes the host label, expected hostname, and
+# current/target version keys so the opening demo move is pinned in the copied
+# profile before rehearsal.
+windows_demo_host_label: "Smartagent-windows-1"
+windows_demo_expected_hostname: "Smartagent-windows-1"
+windows_demo_current_version: "<windows-host-current-version>"
+windows_demo_target_version: "<windows-host-upgrade-target-version>"
+# Optional fallback if you still prefer a Deployment Group edit instead of the
+# default `Agent Management > Smart Agents > Upgrade` flow.
+windows_deployment_group: "<optional-windows-deployment-group-name>"
+
 controller_url: "<controller-url>"
 controller_account_name: "your-account-name"
 splunk_realm: "<splunk-realm>"
 
 smartagent_bundle_filename: "appdsmartagent_64_linux_<version>.zip"
+# Windows hosts use a different package family and should be installed or
+# upgraded with the Windows ZIP and `smartagentctl.exe`, not the Linux bundle.

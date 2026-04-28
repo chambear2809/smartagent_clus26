@@ -1,0 +1,25 @@
+lab_name: "fixture-windows-demo"
+region: "us-east-1"
+
+control_host: "control.example.internal"
+control_ssh_user: "ubuntu"
+control_ssh_args:
+  - "-o"
+  - "StrictHostKeyChecking=no"
+control_bundle_dir: "/home/ubuntu/appdsm"
+
+managed_ssh_user: "ubuntu"
+managed_ssh_args:
+  - "-o"
+  - "BatchMode=yes"
+  - "-o"
+  - "StrictHostKeyChecking=no"
+
+managed_hosts:
+  - "10.0.0.10"
+
+windows_demo_host_label: "Smartagent-windows-1"
+windows_demo_expected_hostname: "Smartagent-windows-1"
+windows_deployment_group: "Windows Smart Agent Upgrade"
+windows_demo_current_version: "26.2.0-779"
+windows_demo_target_version: "26.3.0-938"

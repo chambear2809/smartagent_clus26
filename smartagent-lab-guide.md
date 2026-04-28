@@ -1,6 +1,6 @@
 # Smart Agent Demo Lab Guide
 
-Last updated: April 20, 2026
+Last updated: April 22, 2026
 
 ## Repeatable Entry Point
 
@@ -9,10 +9,10 @@ Preferred operator workflow: use the repo-local `$smartagent-lab` skill in [skil
 Before rehearsal, run the repo validator against the copied profile:
 
 ```bash
-bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile>
+bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile> --require-windows-demo
 ```
 
-It now exits non-zero on critical demo drift and leaves appendix-only checks as warnings.
+It now exits non-zero on critical demo drift. If `smartagent-3` is part of the live flow, add `--require-machine-agent`.
 
 ## Purpose
 
@@ -30,29 +30,36 @@ This version is grounded in live validation of the current AWS lab in `us-east-1
 - `smartagent-1`, `smartagent-2`, `smartagent-3`, and `smartagent-4` now run Smart Agent `26.3.0-938`.
 - `smartagent-1` successfully started `~/spring-petclinic/run-app.sh` and served `HTTP 200` on `8080`.
 - `smartagent-1` now has a minimal same-host `splunk-otel-collector` service installed and healthy on `127.0.0.1:13133`, `127.0.0.1:4317`, and `127.0.0.1:4318`.
-- `smartagent-2` had Node.js installed and returned `v24.13.0`.
+- `smartagent-2` had Node.js installed and returned `v22.22.0`.
+- `smartagent-2` also had `~/weather-app/src` staged, and `node server.js` was listening on `3000`.
+- The live `node server.js` process on `smartagent-2` was starting with Smart Agent `LD_PRELOAD`, loading the AppDynamics Node native modules, and establishing controller connectivity.
+- The live Node agent log showed node registration plus BT `/` registration for `weather-app`.
+- `smartagent-3` now has a repaired `appdynamics-machine-agent.service`, and the infra path passes `validate_lab.sh --require-machine-agent`.
+- The Windows host is intentionally pinned at Smart Agent `26.2.0-779` so the opening UI move can upgrade it to `26.3.0-938`.
 
 ## What Was Not Validated Live
 
 - A true first-time Smart Agent install onto a clean Linux host
 - The archive-based collector fallback on a restricted-egress managed Linux host
-- A Node.js app sending dual-signal data
-- Combined Machine Agent or infrastructure visibility on the current Linux hosts
+- A Node.js app sending dual-signal data to Splunk Observability Cloud
+- A final visual rehearsal of the exact Windows upgrade click path in the current AppDynamics tenant
 
 Why:
 
 - `smartagent-4` is already enrolled and running Smart Agent.
 - The canonical local-collector path is now the installer-based helper on `smartagent-1`; the archive path remains a contingency workflow.
-- The standalone Machine Agent service on the Linux app hosts is broken because the expected binary is missing.
+- `Smartagent-windows-1` is intentionally kept at `26.2.0-779`, but the final `Agent Management > Smart Agents > Upgrade` click-through should still be rehearsed in the live tenant before demo day.
+- `smartagent-2` has a staged Node.js app and AppDynamics auto-attach proof, but the dual-signal OTel path is still not rehearsed live.
 - The current latest-bundle remote rollout needs `/opt/appdynamics/appdsmartagent` and `/opt/appdynamics/appdsmartagent/staging` to stay writable by the SSH login user `ubuntu`.
 
 ## What This Guide Covers
 
 - Control-node preparation
 - Smart Agent configuration and lifecycle explanation
+- Windows-first host upgrade through Agent Management
 - Java brownfield demo using `~/spring-petclinic`
 - Optional Node.js path
-- Machine Agent appendix and repair note
+- Machine Agent repair and infrastructure validation on `smartagent-3`
 - A safe way to talk about remote lifecycle control in this exact lab
 
 ## Inputs You Must Supply
@@ -84,8 +91,9 @@ A reusable template lives at [smartagent-lab-credentials.example.env](/Users/ale
 | `smartagentctl-base` | control-host address from the copied lab profile | Control node and launcher host |
 | `smartagent-1` | private VPC IP from the copied lab profile | Java `~/spring-petclinic` host |
 | `smartagent-2` | private VPC IP from the copied lab profile | Optional Node.js host |
-| `smartagent-3` | private VPC IP from the copied lab profile | Infra appendix host, Machine Agent currently broken |
+| `smartagent-3` | private VPC IP from the copied lab profile | Infrastructure host after Machine Agent repair and validation |
 | `smartagent-4` | private VPC IP from the copied lab profile | Reset/reinstall target if needed |
+| `Smartagent-windows-1` | address from the copied lab profile | Windows host for the opening Agent Management upgrade story |
 
 Refresh before every demo:
 
@@ -305,8 +313,42 @@ In AppDynamics SaaS:
 
 1. Open Agent Management.
 2. Confirm the managed Linux hosts are visible.
-3. If you started local Smart Agent on the control node, confirm it also appears as expected.
-4. Use this moment to explain lifecycle, versioning, and rollout posture.
+3. Confirm `Smartagent-windows-1` is visible in `Smart Agents` and still shows Smart Agent `26.2.0-779` before the live upgrade.
+4. If you started local Smart Agent on the control node, confirm it also appears as expected.
+5. Use this moment to explain lifecycle, versioning, and rollout posture.
+
+## 8A. Windows Host Upgrade Through Agent Management
+
+Use this path to open the demo with a Smart Agent version upgrade without turning the demo into a remote desktop session.
+
+Rehearsal prerequisites:
+
+- `Smartagent-windows-1` must already be enrolled and visible in `Agent Management > Smart Agents`.
+- The host label and the Windows OS hostname should both read `Smartagent-windows-1`.
+- The current Windows Smart Agent version should still be `26.2.0-779`.
+- The target upgrade version should be `26.3.0-938`, or whatever newer release you plan to show.
+- Windows and Linux Smart Agent packages are different. Do not point the Linux bundle or the Linux remote-rollout path at this host.
+
+Live UI flow:
+
+1. Open `Agent Management > Smart Agents`.
+2. Filter to `Smartagent-windows-1`.
+3. Confirm the current Smart Agent version is `26.2.0-779`.
+4. Click `Upgrade`.
+5. Select `26.3.0-938` as the target version and use the rehearsed upgrade option.
+6. Watch the deployment status until the upgrade is clearly in progress or complete.
+7. Use the resulting version change as the proof point.
+
+Talk track:
+
+- “This is the Windows proof point. The lifecycle change is coming from Agent Management, not from an RDP session.”
+- “I intentionally kept this host one version back, so the first live move is a visible upgrade, not a theoretical admin screen.”
+
+Backup proof:
+
+- Keep a rehearsed PowerShell, Services, `smartagentctl.exe version`, or EC2 console-output check available backstage if someone asks for host-side confirmation.
+- Prefer System Properties or EC2Launch console output over `$env:COMPUTERNAME` if you need the full Windows hostname; Windows can expose a shortened 15-character form there.
+- Let the UI remain the primary live proof unless the room explicitly asks for deeper host evidence.
 
 ## 9. Java Demo On `smartagent-1` Using `~/spring-petclinic`
 
@@ -507,10 +549,13 @@ Restart method:
 Validated live facts:
 
 - `smartagent-2` has Node.js installed
-- `node -v` returned `v24.13.0`
-- no Node demo app was staged during validation
+- `node -v` returned `v22.22.0`
+- `~/weather-app/src` is staged on the host
+- `node server.js` is listening on `3000`
+- the running process carries Smart Agent `LD_PRELOAD`
+- the live Node agent log shows controller connectivity, node registration, and BT `/` registration
 
-Only use the Node path if you stage and test the app before the presentation.
+Only use the Node path if you keep the current app state intact or revalidate it before the presentation.
 
 Generic staging pattern:
 
@@ -535,21 +580,32 @@ export OTEL_EXPORTER_OTLP_HEADERS=x-sf-token=${SPLUNK_ACCESS_TOKEN}
 npm start
 ```
 
-## 12. Machine Agent Appendix On `smartagent-3`
+## 12. Machine Agent Path On `smartagent-3`
 
 Current live state:
 
-- `appdynamics-machine-agent.service` is failed
-- the unit expects `/opt/appdynamics/machine-agent/bin/machine-agent`
-- that file does not exist
+- `appdynamics-machine-agent.service` is active
+- `/opt/appdynamics/machine-agent/bin/machine-agent` exists
+- the path now passes `bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile> --require-machine-agent`
 
-Use this host as:
+Steady state to preserve before demo day:
 
-- a brownfield cautionary note
-- a repair task before demo day
-- appendix material, not core live flow
+- keep `appdynamics-machine-agent.service` active
+- confirm the host is visible in the AppDynamics infrastructure view you plan to show
+- confirm any paired Splunk O11y infrastructure view is also ready if that is part of the story
+- run `bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile> --require-machine-agent`
 
-If you repair it, then apply the combined-mode variables and validate both AppDynamics and Splunk O11y infrastructure views before presenting it.
+Useful host-side verification:
+
+```bash
+systemctl status appdynamics-machine-agent --no-pager -l
+test -x /opt/appdynamics/machine-agent/bin/machine-agent && echo "machine_agent_binary=yes"
+journalctl -u appdynamics-machine-agent --since '-5 min' --no-pager | tail -n 20
+```
+
+Presenter line:
+
+- “This closes the loop. The same Smart Agent operating model now covers infrastructure visibility as well as app lifecycle.”
 
 ## 13. Rehearsal Checklist
 
@@ -558,22 +614,24 @@ If you repair it, then apply the combined-mode variables and validate both AppDy
 - Confirm the control node can reach the managed nodes by private IP
 - Confirm a fresh control-host login does not carry `LD_PRELOAD`
 - Confirm Agent Management access
+- Run `bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile> --require-windows-demo`
+- Confirm `Smartagent-windows-1` is visible in `Agent Management > Smart Agents`, is still on `26.2.0-779`, and is ready to upgrade to `26.3.0-938`
 - Confirm `~/spring-petclinic` on `smartagent-1` starts and returns `HTTP 200`
 - Load Splunk realm and access token before any dual-signal restart
 - If you want a first-install story, prepare a clean host in rehearsal
-- If you want an infrastructure story, repair Machine Agent first
+- If you want an infrastructure story, repair Machine Agent first and run the validator with `--require-machine-agent`
 - Capture screenshots of UI checkpoints as backup
 
 ## 14. Safe Demo Mode
 
-1. Log into the control node.
-2. Show `config.ini` and explain `SUPERVISOR_*`.
-3. Show `remote.yaml` and the existing managed-host list.
-4. Move to Agent Management UI.
+1. Open `Agent Management > Smart Agents` and confirm `Smartagent-windows-1` is still on `26.2.0-779`.
+2. Run the rehearsed Windows upgrade to `26.3.0-938` and leave the UI showing rollout status.
+3. Pivot to the control node, show `config.ini`, and explain `SUPERVISOR_*`.
+4. Show `remote.yaml` and the existing managed-host list.
 5. Start `~/spring-petclinic` on `smartagent-1` and validate `HTTP 200`.
 6. Explain `AGENT_DEPLOYMENT_MODE` and dual-signal behavior.
-7. Skip Node unless pre-staged.
-8. Keep Machine Agent in appendix unless repaired.
+7. Show `smartagent-3` only after the validator passes with `--require-machine-agent`.
+8. Skip Node unless pre-staged.
 
 ## 15. Rollback Notes
 
@@ -583,8 +641,9 @@ If you repair it, then apply the combined-mode variables and validate both AppDy
 
 ## Reference Docs
 
-- Install Smart Agent: https://help.splunk.com/en/appdynamics-on-premises/agent-management/26.1.0/smart-agent/get-started/install-smart-agent
-- Configure Smart Agent: https://help.splunk.com/en/appdynamics-saas/agent-management/26.1.0/smart-agent/get-started/configure-smart-agent
+- Install Smart Agent: https://help.splunk.com/en/appdynamics-saas/agent-management/26.4.0/smart-agent/get-started/install-smart-agent
+- Configure Smart Agent: https://help.splunk.com/en/appdynamics-saas/agent-management/26.4.0/smart-agent/get-started/configure-smart-agent
+- Upgrade Smart Agent: https://help.splunk.com/en/appdynamics-on-premises/agent-management/26.3.0/smart-agent/upgrade-smart-agent
 - Auto-Attach Java and NodeJS Agents: https://help.splunk.com/en/appdynamics-saas/agent-management/26.4.0/smart-agent/auto-attach-java-and-nodejs-agents
 - SSH Configuration for Remote Host: https://help.splunk.com/en/appdynamics-on-premises/agent-management/26.4.0/smart-agent/manage-the-agents-using-smartagentctl/install-supported-agents-using-smartagentctl/ssh-configuration-for-remote-host
 - Monitor Applications with Combined Agent: https://help.splunk.com/en/appdynamics-saas/application-performance-monitoring/26.2.0/splunk-appdynamics-for-opentelemetry/instrument-applications-with-splunk-appdynamics-for-opentelemetry/monitor-applications-with-combined-agent

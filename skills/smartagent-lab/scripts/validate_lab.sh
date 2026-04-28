@@ -9,19 +9,23 @@ source "$SCRIPT_DIR/common.sh"
 PROFILE=""
 VALIDATION_FAILURES=0
 REQUIRE_JAVA_COLLECTOR=0
+REQUIRE_MACHINE_AGENT=0
+REQUIRE_WINDOWS_DEMO=0
 
 usage() {
   cat <<'EOF'
 Usage:
-  validate_lab.sh --profile <path> [--require-java-collector]
+  validate_lab.sh --profile <path> [--require-java-collector] [--require-machine-agent] [--require-windows-demo]
 
 Behavior:
   - Runs read-only validation
   - Connects to the public control host
   - Uses the control host to reach managed hosts by private IP
   - Fails with a non-zero exit code when critical demo prerequisites drift
-  - Keeps appendix-only checks visible without making them fatal
+  - Keeps optional paths visible as warnings unless a --require flag promotes them to hard failures
   - When --require-java-collector is set, fails if the Java demo host is not listening on 4317 or 4318
+  - When --require-machine-agent is set, fails if the infra host does not have a healthy Machine Agent
+  - When --require-windows-demo is set, fails if the Windows upgrade story is not fully pinned in the copied profile
 EOF
 }
 
@@ -44,6 +48,53 @@ require_marker() {
   if ! section_has_line "$output" "$marker"; then
     record_failure "$message"
   fi
+}
+
+value_is_placeholder() {
+  local value="$1"
+  [[ -z "$value" || "$value" == \<*\> ]]
+}
+
+normalize_version() {
+  local value="$1"
+  value="${value#smartagentctl version }"
+  value="${value#v}"
+  printf '%s' "$value"
+}
+
+compare_versions() {
+  local left right
+  local -a left_parts=() right_parts=()
+  local i max left_part right_part
+
+  left="$(normalize_version "$1")"
+  right="$(normalize_version "$2")"
+  IFS='.-' read -r -a left_parts <<< "$left"
+  IFS='.-' read -r -a right_parts <<< "$right"
+
+  max="${#left_parts[@]}"
+  if (( ${#right_parts[@]} > max )); then
+    max="${#right_parts[@]}"
+  fi
+
+  for ((i = 0; i < max; i++)); do
+    left_part="${left_parts[$i]:-0}"
+    right_part="${right_parts[$i]:-0}"
+    if (( 10#$left_part < 10#$right_part )); then
+      printf '%s' "-1"
+      return 0
+    fi
+    if (( 10#$left_part > 10#$right_part )); then
+      printf '%s' "1"
+      return 0
+    fi
+  done
+
+  printf '%s' "0"
+}
+
+lowercase() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
 validate_control_host() {
@@ -364,6 +415,113 @@ EOF
   note
 }
 
+validate_windows_demo() {
+  local metadata_present=0
+  local current_present=0
+  local target_present=0
+  local version_delta="no"
+  local upgrade_direction="no"
+  local host_label_ready="no"
+  local expected_hostname_ready="no"
+  local current_version_ready="no"
+  local target_version_ready="no"
+  local identity_aligned="no"
+  local output
+  local value
+
+  for value in \
+    "${WINDOWS_DEMO_HOST_LABEL:-}" \
+    "${WINDOWS_DEMO_EXPECTED_HOSTNAME:-}" \
+    "${WINDOWS_DEMO_CURRENT_VERSION:-}" \
+    "${WINDOWS_DEMO_TARGET_VERSION:-}"; do
+    if [[ -n "$value" ]]; then
+      metadata_present=1
+      break
+    fi
+  done
+
+  if [[ "$metadata_present" -eq 0 && "$REQUIRE_WINDOWS_DEMO" -eq 0 ]]; then
+    return 0
+  fi
+
+  note "== Windows Demo Metadata =="
+
+  if ! value_is_placeholder "${WINDOWS_DEMO_HOST_LABEL:-}"; then
+    host_label_ready="yes"
+  fi
+  if ! value_is_placeholder "${WINDOWS_DEMO_EXPECTED_HOSTNAME:-}"; then
+    expected_hostname_ready="yes"
+  fi
+  if ! value_is_placeholder "${WINDOWS_DEMO_CURRENT_VERSION:-}"; then
+    current_present=1
+    current_version_ready="yes"
+  fi
+  if ! value_is_placeholder "${WINDOWS_DEMO_TARGET_VERSION:-}"; then
+    target_present=1
+    target_version_ready="yes"
+  fi
+
+  if [[ "$current_present" -eq 1 && "$target_present" -eq 1 ]]; then
+    if [[ "$WINDOWS_DEMO_CURRENT_VERSION" != "$WINDOWS_DEMO_TARGET_VERSION" ]]; then
+      version_delta="yes"
+    fi
+    if [[ "$(compare_versions "$WINDOWS_DEMO_CURRENT_VERSION" "$WINDOWS_DEMO_TARGET_VERSION")" == "-1" ]]; then
+      upgrade_direction="yes"
+    fi
+  fi
+  if [[ "$host_label_ready" == "yes" && "$expected_hostname_ready" == "yes" ]]; then
+    if [[ "$(lowercase "$WINDOWS_DEMO_HOST_LABEL")" == "$(lowercase "$WINDOWS_DEMO_EXPECTED_HOSTNAME")" ]]; then
+      identity_aligned="yes"
+    fi
+  fi
+
+  output="$(cat <<EOF
+windows_demo_gate_scope=profile_metadata
+windows_demo_host_label_ready=$host_label_ready
+windows_demo_host_label=${WINDOWS_DEMO_HOST_LABEL:-}
+windows_demo_expected_hostname_ready=$expected_hostname_ready
+windows_demo_expected_hostname=${WINDOWS_DEMO_EXPECTED_HOSTNAME:-}
+windows_deployment_group=${WINDOWS_DEPLOYMENT_GROUP:-}
+windows_demo_current_version_ready=$current_version_ready
+windows_demo_current_version=${WINDOWS_DEMO_CURRENT_VERSION:-}
+windows_demo_target_version_ready=$target_version_ready
+windows_demo_target_version=${WINDOWS_DEMO_TARGET_VERSION:-}
+windows_demo_version_delta=$version_delta
+windows_demo_upgrade_direction_ok=$upgrade_direction
+windows_demo_identity_aligned=$identity_aligned
+EOF
+)"
+
+  printf '%s\n' "$output"
+
+  if [[ "$REQUIRE_WINDOWS_DEMO" -eq 1 ]]; then
+    require_marker "$output" "windows_demo_host_label_ready=yes" "Windows demo host label is not pinned in the copied profile"
+    require_marker "$output" "windows_demo_expected_hostname_ready=yes" "Windows demo expected hostname is not pinned in the copied profile"
+    require_marker "$output" "windows_demo_current_version_ready=yes" "Windows demo current version is not pinned in the copied profile"
+    require_marker "$output" "windows_demo_target_version_ready=yes" "Windows demo target version is not pinned in the copied profile"
+    require_marker "$output" "windows_demo_version_delta=yes" "Windows demo current and target versions are identical, so there is no upgrade story"
+    require_marker "$output" "windows_demo_upgrade_direction_ok=yes" "Windows demo target version is not newer than the current version"
+    require_marker "$output" "windows_demo_identity_aligned=yes" "Windows demo host label and expected hostname do not match"
+  else
+    if ! section_has_line "$output" "windows_demo_host_label_ready=yes"; then
+      note "VALIDATION WARNING: Windows demo host label is not pinned in the copied profile"
+    elif ! section_has_line "$output" "windows_demo_expected_hostname_ready=yes"; then
+      note "VALIDATION WARNING: Windows demo expected hostname is not pinned in the copied profile"
+    elif ! section_has_line "$output" "windows_demo_current_version_ready=yes"; then
+      note "VALIDATION WARNING: Windows demo current version is not pinned in the copied profile"
+    elif ! section_has_line "$output" "windows_demo_target_version_ready=yes"; then
+      note "VALIDATION WARNING: Windows demo target version is not pinned in the copied profile"
+    elif ! section_has_line "$output" "windows_demo_version_delta=yes"; then
+      note "VALIDATION WARNING: Windows demo current and target versions are identical, so there is no upgrade story"
+    elif ! section_has_line "$output" "windows_demo_upgrade_direction_ok=yes"; then
+      note "VALIDATION WARNING: Windows demo target version is not newer than the current version"
+    elif ! section_has_line "$output" "windows_demo_identity_aligned=yes"; then
+      note "VALIDATION WARNING: Windows demo host label and expected hostname do not match"
+    fi
+  fi
+  note
+}
+
 validate_infra_host() {
   local output infra_script
 
@@ -381,6 +539,11 @@ if [[ "$machine_agent_state" == "active" ]]; then
 else
   echo "machine_agent_active=no"
 fi
+if [[ -x /opt/appdynamics/machine-agent/bin/machine-agent ]]; then
+  echo "machine_agent_binary_exists=yes"
+else
+  echo "machine_agent_binary_exists=no"
+fi
 smartagent_state="$(systemctl is-active smartagent 2>/dev/null || true)"
 echo "smartagent_active_state=$smartagent_state"
 systemctl status appdynamics-machine-agent --no-pager -l | sed -n '1,25p' || true
@@ -388,14 +551,25 @@ EOF
 )"
 
   if ! output="$(managed_via_control "$INFRA_HOST" "$infra_script")"; then
-    note "VALIDATION WARNING: unable to validate appendix infra host $INFRA_HOST"
+    if [[ "$REQUIRE_MACHINE_AGENT" -eq 1 ]]; then
+      record_failure "unable to validate infra host $INFRA_HOST while --require-machine-agent is set"
+    else
+      note "VALIDATION WARNING: unable to validate infra host $INFRA_HOST"
+    fi
     note
     return
   fi
 
   printf '%s\n' "$output"
-  if ! section_has_line "$output" "machine_agent_active=yes"; then
-    note "VALIDATION WARNING: appendix infra host $INFRA_HOST does not have an active Machine Agent"
+  if [[ "$REQUIRE_MACHINE_AGENT" -eq 1 ]]; then
+    require_marker "$output" "machine_agent_binary_exists=yes" "infra host $INFRA_HOST is missing /opt/appdynamics/machine-agent/bin/machine-agent"
+    require_marker "$output" "machine_agent_active=yes" "infra host $INFRA_HOST does not have an active Machine Agent"
+  else
+    if ! section_has_line "$output" "machine_agent_binary_exists=yes"; then
+      note "VALIDATION WARNING: infra host $INFRA_HOST is missing /opt/appdynamics/machine-agent/bin/machine-agent"
+    elif ! section_has_line "$output" "machine_agent_active=yes"; then
+      note "VALIDATION WARNING: infra host $INFRA_HOST does not have an active Machine Agent"
+    fi
   fi
   note
 }
@@ -409,6 +583,14 @@ main() {
         ;;
       --require-java-collector)
         REQUIRE_JAVA_COLLECTOR=1
+        shift
+        ;;
+      --require-machine-agent)
+        REQUIRE_MACHINE_AGENT=1
+        shift
+        ;;
+      --require-windows-demo)
+        REQUIRE_WINDOWS_DEMO=1
         shift
         ;;
       -h|--help)
@@ -429,6 +611,7 @@ main() {
   validate_managed_hosts
   validate_java_demo
   validate_node_demo
+  validate_windows_demo
   validate_infra_host
 
   if [[ "$VALIDATION_FAILURES" -gt 0 ]]; then

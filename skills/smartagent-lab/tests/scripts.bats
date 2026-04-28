@@ -11,6 +11,7 @@ setup() {
   FIXTURE_CUSTOM="$BATS_TEST_DIRNAME/fixtures/profile-custom-ownership.yaml"
   FIXTURE_MINIMAL="$BATS_TEST_DIRNAME/fixtures/profile-minimal.yaml"
   FIXTURE_MANAGED_ARGS="$BATS_TEST_DIRNAME/fixtures/profile-managed-ssh-args.yaml"
+  FIXTURE_WINDOWS="$BATS_TEST_DIRNAME/fixtures/profile-windows-demo.yaml"
   BUNDLE_PATH="$REPO_ROOT/appdsmartagent_64_linux_26.3.0.938.zip"
 }
 
@@ -24,6 +25,12 @@ setup() {
   run bash -lc "source '$COMMON_SH'; load_profile '$FIXTURE_CUSTOM'; printf '%s|%s|%s|%s' \"\$EXPECTED_REMOTE_AUTH_USERNAME\" \"\$EXPECTED_REMOTE_PRIVILEGED\" \"\$EXPECTED_SMARTAGENT_USER\" \"\$EXPECTED_SMARTAGENT_GROUP\""
   [ "$status" -eq 0 ]
   [ "$output" = "svc-smartagent|false|svc-agent|svc-observers" ]
+}
+
+@test "load_profile reads Windows demo metadata" {
+  run bash -lc "source '$COMMON_SH'; load_profile '$FIXTURE_WINDOWS'; printf '%s|%s|%s|%s|%s' \"\$WINDOWS_DEMO_HOST_LABEL\" \"\$WINDOWS_DEMO_EXPECTED_HOSTNAME\" \"\$WINDOWS_DEPLOYMENT_GROUP\" \"\$WINDOWS_DEMO_CURRENT_VERSION\" \"\$WINDOWS_DEMO_TARGET_VERSION\""
+  [ "$status" -eq 0 ]
+  [ "$output" = "Smartagent-windows-1|Smartagent-windows-1|Windows Smart Agent Upgrade|26.2.0-779|26.3.0-938" ]
 }
 
 @test "build_managed_ssh_command uses sshpass when managed password is set" {
@@ -43,7 +50,7 @@ setup() {
 }
 
 @test "managed_copy_via_control keeps explicit source paths intact" {
-  run bash -lc "source '$COMMON_SH'; load_profile '$FIXTURE_DEFAULTS'; control_ssh_stream() { cat; }; managed_copy_via_control '172.31.1.48' '/home/ubuntu/test.tgz' '/home/ubuntu/test.tgz'"
+  run bash -lc "source '$COMMON_SH'; load_profile '$FIXTURE_DEFAULTS'; control_ssh_stream() { printf '%s\n' \"\$1\"; }; managed_copy_via_control '172.31.1.48' '/home/ubuntu/test.tgz' '/home/ubuntu/test.tgz'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"/home/ubuntu/test.tgz"* ]]
   [[ "$output" != *"\\\$HOME/test.tgz"* ]]
@@ -260,6 +267,100 @@ main --profile '$FIXTURE_MINIMAL'"
   [ "$status" -eq 1 ]
   [[ "$output" == *"VALIDATION ERROR: managed host 10.0.0.10 has an empty /opt/appdynamics/appdsmartagent/config.ini"* ]]
   [[ "$output" == *"VALIDATION ERROR: managed host 10.0.0.10 does not let ubuntu write /opt/appdynamics/appdsmartagent for remote push"* ]]
+}
+
+@test "validate_lab fails when Windows demo metadata is required but missing" {
+  run bash -lc "source '$VALIDATE_LAB'
+control_ssh_stream() {
+  cat <<'EOF'
+control-node
+bundle_dir=/home/ubuntu/appdsm
+bundle_dir_exists=yes
+bundle_cli_exists=yes
+26.3.0-938
+control_smartagent_state=active
+control_smartagent_active=yes
+control_service_user=root
+control_service_group=root
+---
+ld_preload_reference_present=no
+---
+remote_yaml_exists=yes
+remote_auth_username_ok=yes
+remote_privileged_ok=yes
+remote_runtime_identity_ok=yes
+remote_host_count=1
+---
+/home/ubuntu/appdsm
+EOF
+}
+managed_via_control() {
+  cat <<'EOF'
+managed-node
+smartagent_active_state=active
+smartagent_active=yes
+smartagent_cli_exists=yes
+26.3.0-938
+smartagent_service_user=root
+smartagent_service_group=root
+smartagent_service_identity_ok=yes
+smartagent_config_nonempty=yes
+smartagent_remote_push_root_writable=yes
+smartagent_remote_push_staging_writable=yes
+root root smartagent
+EOF
+}
+main --profile '$FIXTURE_MINIMAL' --require-windows-demo"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"VALIDATION ERROR: Windows demo host label is not pinned in the copied profile"* ]]
+  [[ "$output" == *"VALIDATION ERROR: Windows demo current version is not pinned in the copied profile"* ]]
+}
+
+@test "validate_lab passes when Windows demo metadata is pinned for an upgrade" {
+  run bash -lc "source '$VALIDATE_LAB'
+control_ssh_stream() {
+  cat <<'EOF'
+control-node
+bundle_dir=/home/ubuntu/appdsm
+bundle_dir_exists=yes
+bundle_cli_exists=yes
+26.3.0-938
+control_smartagent_state=active
+control_smartagent_active=yes
+control_service_user=root
+control_service_group=root
+---
+ld_preload_reference_present=no
+---
+remote_yaml_exists=yes
+remote_auth_username_ok=yes
+remote_privileged_ok=yes
+remote_runtime_identity_ok=yes
+remote_host_count=1
+---
+/home/ubuntu/appdsm
+EOF
+}
+managed_via_control() {
+  cat <<'EOF'
+managed-node
+smartagent_active_state=active
+smartagent_active=yes
+smartagent_cli_exists=yes
+26.3.0-938
+smartagent_service_user=root
+smartagent_service_group=root
+smartagent_service_identity_ok=yes
+smartagent_config_nonempty=yes
+smartagent_remote_push_root_writable=yes
+smartagent_remote_push_staging_writable=yes
+root root smartagent
+EOF
+}
+main --profile '$FIXTURE_WINDOWS' --require-windows-demo"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"windows_demo_upgrade_direction_ok=yes"* ]]
+  [[ "$output" == *"Validation passed with no critical issues."* ]]
 }
 
 @test "install_local_collector dry run shows the managed collector plan" {

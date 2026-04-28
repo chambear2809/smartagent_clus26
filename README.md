@@ -1,6 +1,6 @@
 # Smart Agent Demo Lab
 
-This repository contains the docs, scripts, and presentation assets for a repeatable Splunk AppDynamics Smart Agent demo lab. The workflow is built around a control host that manages private-VPC targets and a brownfield Java application used to show Smart Agent lifecycle control, auto-attach, and the path to OpenTelemetry and Splunk Observability Cloud.
+This repository contains the docs, scripts, and presentation assets for a repeatable Splunk AppDynamics Smart Agent demo lab. The workflow is built around a control host that manages private-VPC targets, a brownfield Java application, a Windows-first UI upgrade path, and a repaired infrastructure host used to show Smart Agent lifecycle control, auto-attach, and the path to OpenTelemetry and Splunk Observability Cloud.
 
 The current material is grounded in a validated AWS `us-east-1` lab, but the repo is structured so you can adapt it to a different environment by supplying a new lab profile and credentials.
 
@@ -12,8 +12,10 @@ The current material is grounded in a validated AWS `us-east-1` lab, but the rep
 4. Validate the lab before rehearsal:
 
 ```bash
-bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile>
+bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile> --require-windows-demo
 ```
+
+If the live flow includes infrastructure visibility on `smartagent-3`, add `--require-machine-agent`. Add `--require-java-collector` when the Java dual-signal path is part of the live flow.
 
 ## Repo Layout
 
@@ -22,11 +24,11 @@ bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile>
 - [`smartagent-demo-script.md`](smartagent-demo-script.md) is the live 45-minute presentation script.
 - [`smartagent-architecture.md`](smartagent-architecture.md) is the architecture overview and diagram.
 - [`preso/`](preso/) contains the conference deck source, speaker notes, and generated slide deck.
-- [`appdsmartagent_64_linux_26.3.0.938.zip`](appdsmartagent_64_linux_26.3.0.938.zip) is the staged Smart Agent bundle tracked with the lab materials.
+- [`appdsmartagent_64_linux_26.3.0.938.zip`](appdsmartagent_64_linux_26.3.0.938.zip) is the staged Linux Smart Agent bundle tracked with the lab materials. Windows hosts use a separate Windows ZIP plus `smartagentctl.exe`.
 
 ## Key Scripts
 
-- [`skills/smartagent-lab/scripts/validate_lab.sh`](skills/smartagent-lab/scripts/validate_lab.sh): read-only validation of the current lab through the control host.
+- [`skills/smartagent-lab/scripts/validate_lab.sh`](skills/smartagent-lab/scripts/validate_lab.sh): read-only validation of the current lab through the control host, with optional hard gates for the Windows-first demo metadata, Java collector, and Machine Agent paths.
 - [`skills/smartagent-lab/scripts/stage_bundle.sh`](skills/smartagent-lab/scripts/stage_bundle.sh): stage a Smart Agent bundle on the control host.
 - [`skills/smartagent-lab/scripts/prepare_remote_push.sh`](skills/smartagent-lab/scripts/prepare_remote_push.sh): prepare managed-host install directories for remote rollout.
 - [`skills/smartagent-lab/scripts/start_java_demo.sh`](skills/smartagent-lab/scripts/start_java_demo.sh): print or execute the Java brownfield demo startup flow.
@@ -36,6 +38,7 @@ bash skills/smartagent-lab/scripts/validate_lab.sh --profile <copied-profile>
 
 - Treat the control host as the only operator entry point.
 - Reach managed Linux hosts by private VPC IP from that control host.
+- Use Agent Management as the primary operator path for the opening Windows host upgrade story.
 - Prefer staged and validated workflows over direct remote cutovers.
 - Keep the brownfield Java app startup path plain so Smart Agent auto-attach remains the real proof point.
 - Do not commit real credentials, private keys, or filled-in environment files.
