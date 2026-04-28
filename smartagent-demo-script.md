@@ -47,7 +47,7 @@ Show Splunk AppDynamics Smart Agent as the lifecycle control plane for a mixed e
 - For Java dual mode with a local collector, the collector is a separate OpenTelemetry Collector process on the same host as the Java runtime. It is not the Machine Agent.
 - The current lab already has a minimal same-host collector on `smartagent-1`. If you want the install motion on stage, rerun the repo helper and narrate that it is idempotent.
 - `smartagentctl status --remote` is not safe to present as a harmless read-only check on this `26.2.0-779` control node. During validation it stopped and synchronized remote Smart Agent services.
-- For the current latest-bundle rollout, `/opt/appdynamics/appdsmartagent` and `/opt/appdynamics/appdsmartagent/staging` on the managed Linux hosts must stay writable by the SSH login user `ubuntu`. **Open drift as of April 28, 2026:** on `smartagent-2` (`172.31.1.142`) those two paths are no longer writable by `ubuntu`, which causes `validate_lab.sh` to fail with two `VALIDATION ERROR` lines for that host on every `--require-*` gate. The other three managed hosts pass. Run `bash skills/smartagent-lab/scripts/prepare_remote_push.sh --profile <copied-profile> --execute` (operates against every managed host in the profile and is idempotent on the three already-writable hosts) before treating the latest-bundle remote-push path as safe to demo, then re-run `validate_lab.sh` to confirm the gates pass.
+- For the current latest-bundle rollout, `/opt/appdynamics/appdsmartagent` and `/opt/appdynamics/appdsmartagent/staging` on the managed Linux hosts must stay writable by the SSH login user `ubuntu`. **Validated live April 28, 2026:** all four managed hosts (`smartagent-1`, `smartagent-2`, `smartagent-3`, `smartagent-4`) are at `root:ubuntu 775` on both paths and pass the `validate_lab.sh` writability check. If a host drifts again, re-run `bash skills/smartagent-lab/scripts/prepare_remote_push.sh --profile <copied-profile> --execute`; the script iterates every managed host in the profile and is idempotent on already-writable hosts.
 - Do not rehearse `migrate --remote` on already-enrolled hosts with `26.3.0.938`; it can zero the managed-host `config.ini`.
 - Do not put `smartagent-3` on stage unless `validate_lab.sh --require-machine-agent` passes on the current day.
 - The durable control-host `LD_PRELOAD` fix is already applied. Fresh SSH logins should now be clean.
@@ -303,10 +303,18 @@ Rehearsal gate:
 - Prefer System Properties or EC2Launch console output over `$env:COMPUTERNAME` if you need the full Windows hostname; Windows can expose a shortened 15-character form there.
 - Do not use the Linux bundle or the Linux remote rollout path against the Windows host.
 
-Linux post-upgrade note (per the latest 26.4 Smart Agent upgrade page):
+Windows post-upgrade verification (per the latest 26.4 Smart Agent upgrade page):
 
-- Windows hosts do not require a restart after a successful UI upgrade; verify success via the deployment status and `/upgrade-log.log`.
-- Linux hosts upgraded through the same UI path require a host-side restart sequence to pick up the new binary:
+- Windows does not have `systemctl` and does not require a service restart after a successful UI upgrade.
+- Verify success via the Agent Management deployment status and the host-side `\upgrade-log.log` (look at the latest entries; the file is rewritten per upgrade attempt).
+
+For the Linux equivalent of this same UI-driven upgrade flow, see Section 5B.
+
+### 5B. Linux Post-Upgrade Restart Sequence (Linux Managed Hosts Only)
+
+This section is Linux-only and not part of the live Windows opening move. Use it as a reference if you (or a customer) drive a Linux Smart Agent upgrade from `Agent Management > Smart Agents` on a managed host such as `smartagent-1`–`smartagent-4`.
+
+Per the 26.4 Smart Agent upgrade page, after a successful UI-driven upgrade on a Linux managed host, run the host-side restart sequence so the service picks up the new binary and `daemon-reload` re-reads any unit-file changes:
 
 ```bash
 sudo systemctl restart smartagent
@@ -314,7 +322,11 @@ sudo systemctl daemon-reload
 sudo systemctl restart smartagent
 ```
 
-- Run the same trio after any rehearsed Linux UI-driven upgrade so that auto-attach and Deployment Group state pick up the new binary cleanly.
+Operational notes:
+
+- Run this trio on the managed Linux host, not on the control host (the control host has its own `smartagentctl start --service` flow already covered in Section 4).
+- Auto-attach and Deployment Group policy pickup happen on the managed-host restart, so do this before re-running any Java or Node demo flow that depends on the new binary.
+- Windows hosts do not have `systemctl` and do not require this step. See the Windows post-upgrade verification note in Section 5A.
 
 ### 6. Brownfield Java App On `smartagent-1`
 
