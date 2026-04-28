@@ -36,6 +36,8 @@ Show Splunk AppDynamics Smart Agent as the lifecycle control plane for a mixed e
 - The live Node agent log shows node registration plus BT `/` registration for `weather-app`.
 - `smartagent-3` now has a repaired `appdynamics-machine-agent.service`. The Machine Agent has been active continuously since April 24, 2026.
 - The Windows host is intentionally pinned at `26.2.0-779` so the opening UI move can upgrade it to `26.3.0-938`.
+- Java Agent `25.12.0.37551` is the active version under `/opt/appdynamics/appdsmartagent/profile/java/ver25.12.0.37551/`, with bundled `splunk-otel-javaagent-2.22.0.jar` under `.../profile/java/otel/`. `Server-Timing: traceparent` is present on the Petclinic root response, proving dual-signal mode end-to-end.
+- libpreload auto-attach on `smartagent-1` was repaired April 28, 2026: two filter `agentPath` entries in `/opt/appdynamics/appdsmartagent/lib/ld_preload.json` (`springboot` and `plain java`) had been pointing at the directory `.../profile/java` instead of `.../profile/java/javaagent.jar`, which crashed every new brownfield JVM with `Error opening zip file or JAR manifest missing`. After the on-disk fix the documented `bash -lc 'cd ~/spring-petclinic && nohup ./run-app.sh ...'` flow attaches `javaagent.jar` plus `splunk-otel-javaagent-2.22.0.jar` cleanly with `LD_PRELOAD` set and no `_JAVA_OPTIONS`.
 
 ## Important Live Caveats
 
@@ -51,6 +53,7 @@ Show Splunk AppDynamics Smart Agent as the lifecycle control plane for a mixed e
 - Do not rehearse `migrate --remote` on already-enrolled hosts with `26.3.0.938`; it can zero the managed-host `config.ini`.
 - Do not put `smartagent-3` on stage unless `validate_lab.sh --require-machine-agent` passes on the current day.
 - The durable control-host `LD_PRELOAD` fix is already applied. Fresh SSH logins should now be clean.
+- The brownfield JVM on `smartagent-1` relies on Smart Agent libpreload auto-attach via the `LD_PRELOAD` exported by `/etc/profile.d/set-appdynamics-env.sh`. That export only fires from a login shell, so always start the JVM through `bash -lc 'cd ~/spring-petclinic && nohup ./run-app.sh ...'` (or via SSH which itself runs a login shell). Do not hand-attach `_JAVA_OPTIONS=-javaagent:...` or set `JAVA_TOOL_OPTIONS` in the session — that masks any libpreload regression and skips the Deployment Group system properties.
 
 ## Audience Message
 
@@ -342,10 +345,17 @@ curl -sfI http://127.0.0.1:8080
 tail -n 20 /tmp/petclinic.log
 ```
 
+Login-shell requirement:
+
+- The brownfield JVM here is plain `java -jar`. The AppD Java Agent and the bundled OTel Java Agent are injected by Smart Agent libpreload, which depends on the `LD_PRELOAD` export from `/etc/profile.d/set-appdynamics-env.sh`. That export only fires from a login shell.
+- A direct interactive SSH session (as shown above) already runs a login shell, so the standard `nohup ./run-app.sh ...` works.
+- If you script the start (or run it from a non-interactive shell), wrap it in `bash -lc`, e.g. `bash -lc 'cd ~/spring-petclinic && nohup ./run-app.sh >/tmp/petclinic.log 2>&1 </dev/null &'`. Do not hand-attach `_JAVA_OPTIONS=-javaagent:...` or set `JAVA_TOOL_OPTIONS` to compensate; that masks libpreload regressions and bypasses Deployment Group system properties.
+
 Validated live result:
 
 - Java bound to `*:8080`
 - `curl -I` returned `HTTP/1.1 200`
+- New JVM environ shows `LD_PRELOAD=/opt/appdynamics/appdsmartagent/lib/libpreload.so` and no `_JAVA_OPTIONS` / `JAVA_TOOL_OPTIONS`. `/proc/<pid>/maps` shows both `/opt/appdynamics/appdsmartagent/profile/java/javaagent.jar` and `/opt/appdynamics/appdsmartagent/profile/java/otel/splunk-otel-javaagent-2.22.0.jar` mapped into the JVM, and the response carries `Server-Timing: traceparent` (dual-signal mode active end-to-end).
 
 ### 7. Java Combined-Mode Naming
 
@@ -542,6 +552,12 @@ Required environment for either dual signal or OTel only mode:
 - `SPLUNK_API_URL` defaults to `https://api.${SPLUNK_REALM}.signalfx.com`
 - `SPLUNK_INGEST_URL` defaults to `https://ingest.${SPLUNK_REALM}.signalfx.com`
 
+Systemd-host prerequisite (do not skip):
+
+- On a systemd Linux host, CMA dual-signal mode (`SPLUNK_OTEL_ENABLED=true`) and OTel-only mode (`SPLUNK_OTEL_ONLY=true`) defer the OTel collector lifecycle to a separate `splunk-otel-collector.service`. The Combined Machine Agent itself does not embed or start the collector.
+- Confirm the collector is installed before flipping the env var: `systemctl list-unit-files | grep -i otel` should show `splunk-otel-collector.service`.
+- On this lab, `splunk-otel-collector.service` is installed and active on `smartagent-1` (validated live April 28, 2026 — listeners on `127.0.0.1:4317`/`4318`, health `200` on `127.0.0.1:13133`). It is **not** installed on `smartagent-3`. Enabling `SPLUNK_OTEL_ENABLED=true` on `smartagent-3` today will keep AppD reporting healthy but will emit no OTel data to Splunk Observability Cloud until the collector package is installed (e.g. via the Splunk OTel Collector installer or `scripts/install_local_collector.sh --use-splunk-installer`).
+
 Steady state to preserve before demo day:
 
 - keep `appdynamics-machine-agent.service` active
@@ -564,6 +580,7 @@ Presenter line:
 Demo-day caveat:
 
 - This lab keeps `smartagent-3` in default Machine Agent mode for safety. Only flip CMA into dual-signal mode live if you have rehearsed the env-var change, restart, and Splunk O11y dashboard view in advance, and revalidated `--require-machine-agent` afterwards.
+- Because `splunk-otel-collector.service` is not installed on `smartagent-3` today, a live `SPLUNK_OTEL_ENABLED=true` flip there is a backstage decision, not a stage move. Tell the dual-signal story on `smartagent-1` (where the collector is healthy) and use `smartagent-3` for the AppD-only Machine Agent path until the collector is installed.
 
 ## UI Checkpoints
 
