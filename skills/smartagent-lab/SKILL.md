@@ -36,6 +36,7 @@ Use this skill for repeatable Smart Agent lab work in this repo and similar envi
 - `scripts/stage_bundle.sh`: stage a new Smart Agent bundle on the control host. Dry-run by default.
 - `scripts/prepare_remote_push.sh`: make managed-host install directories writable by the remote SSH user before or after a latest-bundle remote rollout. Dry-run by default.
 - `scripts/validate_lab.sh`: run read-only validation through the control host against private-IP targets. Use `--require-windows-demo`, `--require-java-collector`, and `--require-machine-agent` when those paths are part of the demo.
+- `scripts/repair_smartagent_registration.sh`: dry-run-first repair for a managed host whose Smart Agent service is active but not visible in Agent Management. It backs up `id`, `store.json`, and `log.log`, restarts locally without `--remote`, waits for a controller connection, then reapplies remote-push permissions.
 - `scripts/start_java_demo.sh`: print the Java brownfield startup flow by default, execute only with `--execute`.
 - `scripts/install_local_collector.sh`: stage and start a local collector on the Java demo host. Dry-run by default.
 

@@ -5,6 +5,7 @@ setup() {
   COMMON_SH="$REPO_ROOT/skills/smartagent-lab/scripts/common.sh"
   STAGE_BUNDLE="$REPO_ROOT/skills/smartagent-lab/scripts/stage_bundle.sh"
   PREPARE_REMOTE_PUSH="$REPO_ROOT/skills/smartagent-lab/scripts/prepare_remote_push.sh"
+  REPAIR_SMARTAGENT_REGISTRATION="$REPO_ROOT/skills/smartagent-lab/scripts/repair_smartagent_registration.sh"
   INSTALL_LOCAL_COLLECTOR="$REPO_ROOT/skills/smartagent-lab/scripts/install_local_collector.sh"
   VALIDATE_LAB="$REPO_ROOT/skills/smartagent-lab/scripts/validate_lab.sh"
   FIXTURE_DEFAULTS="$BATS_TEST_DIRNAME/fixtures/profile-defaults.yaml"
@@ -70,6 +71,17 @@ setup() {
   [[ "$output" == *"sudo chgrp \"ubuntu\" /opt/appdynamics/appdsmartagent /opt/appdynamics/appdsmartagent/staging"* ]]
 }
 
+@test "repair_smartagent_registration dry run resets identity without remote start" {
+  run bash "$REPAIR_SMARTAGENT_REGISTRATION" --profile "$FIXTURE_DEFAULTS" --host "172.31.1.48"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Dry run only. Planned registration repair for 172.31.1.48:"* ]]
+  [[ "$output" == *"smartagent-state-backup-"* ]]
+  [[ "$output" == *"sudo rm -f \"\$source_path\""* ]]
+  [[ "$output" == *"sudo ./smartagentctl start --service --enable-auto-attach"* ]]
+  [[ "$output" != *"smartagentctl start --service --remote"* ]]
+  [[ "$output" == *"sudo chgrp \"ubuntu\" /opt/appdynamics/appdsmartagent /opt/appdynamics/appdsmartagent/staging"* ]]
+}
+
 @test "validate_lab main exits non-zero when a critical marker fails" {
   run bash -lc "source '$VALIDATE_LAB'
 control_ssh_stream() {
@@ -106,6 +118,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=yes
 smartagent_remote_push_staging_writable=yes
 root root smartagent
@@ -153,6 +171,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=yes
 smartagent_remote_push_staging_writable=yes
 root root smartagent
@@ -161,6 +185,58 @@ EOF
 main --profile '$FIXTURE_MINIMAL'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Validation passed with no critical issues."* ]]
+}
+
+@test "validate_lab fails when Smart Agent has not connected since service start" {
+  run bash -lc "source '$VALIDATE_LAB'
+control_ssh_stream() {
+  cat <<'EOF'
+control-node
+bundle_dir=/home/ubuntu/appdsm
+bundle_dir_exists=yes
+bundle_cli_exists=yes
+26.3.0-938
+control_smartagent_state=active
+control_smartagent_active=yes
+control_service_user=root
+control_service_group=root
+---
+ld_preload_reference_present=no
+---
+remote_yaml_exists=yes
+remote_auth_username_ok=yes
+remote_privileged_ok=yes
+remote_runtime_identity_ok=yes
+remote_host_count=1
+---
+/home/ubuntu/appdsm
+EOF
+}
+managed_via_control() {
+  cat <<'EOF'
+managed-node
+smartagent_active_state=active
+smartagent_active=yes
+smartagent_cli_exists=yes
+26.3.0-938
+smartagent_service_user=root
+smartagent_service_group=root
+smartagent_service_identity_ok=yes
+smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KQXD0R499YBMC6QKDCKDH75X
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=0
+smartagent_connected_since_start=no
+smartagent_remote_push_root_writable=yes
+smartagent_remote_push_staging_writable=yes
+root root smartagent
+EOF
+}
+main --profile '$FIXTURE_MINIMAL'"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"VALIDATION ERROR: managed host 10.0.0.10 has not connected to the controller since smartagent.service started"* ]]
 }
 
 @test "validate_lab fails when Java collector is required but absent" {
@@ -199,6 +275,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=yes
 smartagent_remote_push_staging_writable=yes
 root root smartagent
@@ -258,6 +340,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=no
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=no
 smartagent_remote_push_staging_writable=yes
 root root smartagent
@@ -305,6 +393,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=yes
 smartagent_remote_push_staging_writable=yes
 root root smartagent
@@ -352,6 +446,12 @@ smartagent_service_user=root
 smartagent_service_group=root
 smartagent_service_identity_ok=yes
 smartagent_config_nonempty=yes
+smartagent_id_present=yes
+smartagent_id=01KSNMQD6A7KW2Z09SVTXK7C1E
+smartagent_id_format_ok=yes
+smartagent_exec_start=Thu 2026-05-28 18:17:26 UTC
+smartagent_connected_since_start_count=1
+smartagent_connected_since_start=yes
 smartagent_remote_push_root_writable=yes
 smartagent_remote_push_staging_writable=yes
 root root smartagent

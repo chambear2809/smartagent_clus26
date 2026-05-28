@@ -268,6 +268,31 @@ if [[ -s /opt/appdynamics/appdsmartagent/config.ini ]]; then
 else
   echo "smartagent_config_nonempty=no"
 fi
+smartagent_id="\$(sudo cat /opt/appdynamics/appdsmartagent/id 2>/dev/null || true)"
+if [[ -n "\$smartagent_id" ]]; then
+  echo "smartagent_id_present=yes"
+  echo "smartagent_id=\$smartagent_id"
+else
+  echo "smartagent_id_present=no"
+fi
+if [[ "\$smartagent_id" =~ ^[0-9A-HJKMNP-TV-Z]{26}$ ]]; then
+  echo "smartagent_id_format_ok=yes"
+else
+  echo "smartagent_id_format_ok=no"
+fi
+smartagent_start="\$(systemctl show -p ExecMainStartTimestamp --value smartagent 2>/dev/null || true)"
+echo "smartagent_exec_start=\$smartagent_start"
+connected_count=0
+if [[ -n "\$smartagent_start" ]]; then
+  connected_count="\$(sudo journalctl -u smartagent --since "\$smartagent_start" --no-pager 2>/dev/null | grep -F '"msg":"Connected to server"' | wc -l | tr -d '[:space:]' || true)"
+fi
+echo "smartagent_connected_since_start_count=\$connected_count"
+if [[ "\$connected_count" =~ ^[0-9]+$ && "\$connected_count" -gt 0 ]]; then
+  echo "smartagent_connected_since_start=yes"
+  sudo journalctl -u smartagent --since "\$smartagent_start" --no-pager 2>/dev/null | grep -F '"msg":"Connected to server"' | tail -1 | sed 's/^/smartagent_last_connected_line=/' || true
+else
+  echo "smartagent_connected_since_start=no"
+fi
 if test -w /opt/appdynamics/appdsmartagent; then
   echo "smartagent_remote_push_root_writable=yes"
 else
@@ -293,6 +318,9 @@ EOF
     require_marker "$output" "smartagent_cli_exists=yes" "managed host $host is missing /opt/appdynamics/appdsmartagent/smartagentctl"
     require_marker "$output" "smartagent_service_identity_ok=yes" "managed host $host is not running Smart Agent as ${EXPECTED_SMARTAGENT_USER}:${EXPECTED_SMARTAGENT_GROUP}"
     require_marker "$output" "smartagent_config_nonempty=yes" "managed host $host has an empty /opt/appdynamics/appdsmartagent/config.ini"
+    require_marker "$output" "smartagent_id_present=yes" "managed host $host is missing /opt/appdynamics/appdsmartagent/id"
+    require_marker "$output" "smartagent_id_format_ok=yes" "managed host $host has an invalid Smart Agent ID format"
+    require_marker "$output" "smartagent_connected_since_start=yes" "managed host $host has not connected to the controller since smartagent.service started"
     require_marker "$output" "smartagent_remote_push_root_writable=yes" "managed host $host does not let ${MANAGED_SSH_USER} write /opt/appdynamics/appdsmartagent for remote push"
     require_marker "$output" "smartagent_remote_push_staging_writable=yes" "managed host $host does not let ${MANAGED_SSH_USER} write /opt/appdynamics/appdsmartagent/staging for remote push"
     note

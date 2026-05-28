@@ -107,7 +107,7 @@ if [[ -e "\$STAGE_DIR" ]]; then
 fi
 
 mkdir -p "\$STAGE_DIR"
-unzip -oq "$HOME/\$BUNDLE_NAME" -d "\$STAGE_DIR"
+unzip -oq "\$HOME/\$BUNDLE_NAME" -d "\$STAGE_DIR"
 sudo cp "\$LIVE_DIR/config.ini" "\$STAGE_DIR/config.ini"
 if [[ -f "\$LIVE_DIR/remote.yaml" ]]; then
   sudo cp "\$LIVE_DIR/remote.yaml" "\$STAGE_DIR/remote.yaml"
